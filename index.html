@@ -67,15 +67,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .cal-cell.today .cday{color:var(--accent);font-weight:700}
 .cday{font-size:.68rem;font-weight:500;color:var(--muted);margin-bottom:2px}
 .cell-top{flex-shrink:0}
-.hol-chip{font-size:.54rem;background:#fff3c4;color:#7a5000;border:1px solid #e8c840;border-radius:3px;padding:2px 4px;margin-bottom:2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-.camp-banner{font-size:.52rem;background:#f5e6d0;color:#6b3a0a;border:1px solid #c8884a;border-radius:3px;padding:2px 4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-weight:500}
-.camp-banner:hover{background:#eed5b8}
+/* Important dates — white, minimal */
+.hol-chip{font-size:.54rem;background:#fff;color:#555;border:1px solid #ddd;border-radius:3px;padding:1px 4px;margin-bottom:2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Campaign lines — rendered via JS into .cal-grid overlay */
+.camp-line-wrap{position:absolute;top:0;left:0;right:0;pointer-events:none;z-index:2}
+.camp-line{height:5px;border-radius:2px;margin-bottom:1px;cursor:pointer;pointer-events:all;opacity:.85;transition:opacity .15s}
+.camp-line:hover{opacity:1}
 .cell-posts{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:2px}
 .pchip{font-size:.58rem;border-radius:4px;padding:2px 5px;cursor:pointer;display:flex;align-items:center;gap:3px;border:1px solid transparent;text-align:left;font-family:'DM Sans',sans-serif;white-space:nowrap;overflow:hidden;max-width:100%;transition:opacity .1s;position:relative}
 .pchip:hover{opacity:.78}
 .pchip.chip-planned{border-style:dashed!important;border-width:1.5px!important}
 .pchip .ct{overflow:hidden;text-overflow:ellipsis;flex:1;font-size:.58rem}
 .pchip .cstatus{flex-shrink:0;font-size:.56rem}
+.pchip .theme-dot{width:4px;height:100%;position:absolute;left:0;top:0;border-radius:3px 0 0 3px}
+.theme-tag-chip{font-size:.48rem;padding:0 3px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;flex-shrink:0}
 .add-cell-btn{position:absolute;bottom:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:.76rem;color:var(--muted);line-height:1;transition:all .15s}
 .cal-cell:hover .add-cell-btn{display:flex}
 .add-cell-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -234,7 +239,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     ⏳ <span id="review-count"></span> À réviser
   </div>
   <button class="ico-btn" onclick="openExportModal()" title="Exporter un rapport" style="font-size:.82rem">📊</button>
-  <button class="ico-btn" onclick="openSettings()" title="Paramètres" style="font-size:.85rem">⚙</button>
+  <button class="ico-btn" onclick="openTargetsModal()" title="Objectifs mensuels" style="font-size:.85rem">🎯</button>
+  <button class="ico-btn" onclick="openTargetsModal()" title="Paramètres" style="font-size:.85rem">⚙</button>
   <button class="upload-btn" onclick="openImpModal()">⬆ Importer</button>
   <input type="file" id="file-inp" accept=".docx" style="display:none" onchange="handleDocx(event)">
 </div>
@@ -362,9 +368,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div id="plat-limits" style="margin-top:5px"></div>
       </div>
 
-      <!-- Titre de la publication -->
-      <div class="fg">
-        <label class="flbl">Titre</label>
+      <!-- Titre — shown always for internal reference, labelled clearly -->
+      <div class="fg" id="title-field-group">
+        <label class="flbl">Titre <span id="title-field-note" style="font-size:.62rem;color:var(--muted);font-weight:400">(référence interne)</span></label>
         <input type="text" class="finput" id="title-fr" placeholder="Titre de la publication…">
         <input type="hidden" id="title-en">
       </div>
@@ -408,10 +414,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
       <!-- Approval section -->
       <div class="fg" id="approver-group" style="display:none">
-        <label class="flbl" id="approver-lbl">Code PIN d'approbation</label>
-        <div id="approver-hint" style="font-size:.68rem;color:var(--muted);margin-bottom:5px"></div>
-        <input type="password" class="finput" id="p-approver" placeholder="Entrez le code PIN…" maxlength="8" autocomplete="off">
-        <button class="btn-approve" style="margin-top:5px;width:100%" onclick="approvePost()">✅ Approuver cette publication</button>
+        <div id="approver-hint" style="font-size:.68rem;color:var(--muted);margin-bottom:8px"></div>
+        <div id="approver-signed-in" style="display:none">
+          <div style="background:#e8f5e9;border:1px solid #81c784;border-radius:7px;padding:8px 12px;font-size:.75rem;color:#2e7d32;margin-bottom:6px">
+            ✓ Connecté en tant que <span id="approver-user" style="font-weight:600"></span>
+          </div>
+          <button class="btn-approve" style="width:100%" onclick="approvePost()">✅ Approuver cette publication</button>
+        </div>
+        <div id="approver-not-signed-in" style="display:none">
+          <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:7px;padding:8px 12px;font-size:.74rem;color:#856404;margin-bottom:6px">
+            Vous devez être connecté·e avec le compte Microsoft d'Isis pour approuver.
+          </div>
+          <button onclick="msalLogin()" class="btn-p" style="width:100%">🔐 Se connecter avec Microsoft</button>
+        </div>
       </div>
 
       <!-- Posted URL + performance -->
@@ -426,7 +441,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="fg" id="ms-approval-section" style="display:none">
         <label class="flbl">Envoyer pour approbation</label>
         <button class="btn-outlook" onclick="sendOutlookApproval()">📧 Envoyer par Outlook</button>
-        <div style="font-size:.65rem;color:var(--muted);margin-top:4px">Envoi à : isis.ossebi@panzi.org</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:4px" id="approval-email-hint">Envoi à : isis.ossebi@panzi.org, marissa@panzi.org</div>
       </div>
 
       <div class="btn-row" id="save-btn-row">
@@ -560,32 +575,37 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <!-- ─── SETTINGS MODAL ─── -->
 <div class="overlay" id="settings-modal">
-  <div class="modal" style="max-width:400px">
+  <div class="modal" style="max-width:420px">
     <div class="mhdr">
       <div class="mtitle">Paramètres</div>
       <button class="mclose" onclick="closeSettings()">✕</button>
     </div>
     <div class="mbody">
+
+      <!-- Microsoft connection status -->
       <div class="fg" style="background:var(--surface2);border-radius:8px;padding:10px;border:1px solid var(--border)">
-        <label class="flbl">🔐 Connexion Microsoft 365 (approbation)</label>
-        <div style="font-size:.68rem;color:var(--muted);margin-bottom:6px">Si l'application est hébergée sur SharePoint, entrez l'ID d'application Azure AD pour activer la connexion Outlook d'Isis. Sinon, utilisez le code PIN ci-dessous.</div>
-        <input type="text" class="finput" id="setting-ms-client-id" placeholder="Client ID Azure AD (ex: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)" style="margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px">
-          <div id="msal-status" style="font-size:.7rem;color:var(--muted);flex:1">Non configuré</div>
-          <button id="msal-login-btn" onclick="msalLogin()" class="btn-s" style="display:none;font-size:.7rem;padding:4px 10px">Se connecter</button>
-          <button id="msal-logout-btn" onclick="msalLogout()" class="btn-s" style="display:none;font-size:.7rem;padding:4px 10px">Déconnecter</button>
+          <div style="font-size:.82rem">🔐</div>
+          <div style="flex:1">
+            <div style="font-size:.76rem;font-weight:600">Connexion Microsoft 365</div>
+            <div id="msal-status" style="font-size:.68rem;color:var(--muted)">Non connecté</div>
+          </div>
+          <button id="msal-login-btn" onclick="msalLogin()" class="btn-p" style="display:none;font-size:.7rem;padding:5px 12px">Se connecter</button>
+          <button id="msal-logout-btn" onclick="msalLogout()" class="btn-s" style="display:none;font-size:.7rem;padding:5px 10px">Déconnecter</button>
         </div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:6px">La connexion Microsoft permet à Isis d'approuver les publications directement depuis son compte Office 365.</div>
       </div>
+
       <div class="fg">
-        <label class="flbl">Code PIN d'approbation <span style="font-size:.62rem;color:var(--muted)">(utilisé si Microsoft 365 non configuré)</span></label>
-        <input type="password" class="finput" id="setting-pin" placeholder="4–8 chiffres" maxlength="8" autocomplete="new-password">
-        <div style="font-size:.68rem;color:var(--muted);margin-top:4px">Ce PIN sera demandé pour approuver les publications dans l'application. Laissez vide pour désactiver.</div>
+        <label class="flbl">Approbateur·trices autorisé·es</label>
+        <div id="approvers-list" style="margin-bottom:6px"></div>
+        <div class="lrow">
+          <input type="email" class="finput" id="new-approver" placeholder="email@panzi.org" onkeydown="if(event.key==='Enter')addApprover()">
+          <button class="btn-s" style="padding:6px 9px;font-size:.72rem;white-space:nowrap" onclick="addApprover()">+ Ajouter</button>
+        </div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:3px">Ces personnes peuvent approuver les publications via leur compte Microsoft 365.</div>
       </div>
-      <div class="fg">
-        <label class="flbl">Approbateur·trice désigné·e</label>
-        <input type="text" class="finput" id="setting-approver" placeholder="ex: Marie Dupont">
-        <div style="font-size:.68rem;color:var(--muted);margin-top:4px">Seul·e cette personne pourra approuver les publications. Les approbations sont envoyées à isis.ossebi@panzi.org.</div>
-      </div>
+
       <div class="fg">
         <label class="flbl">Membres de l'équipe</label>
         <div id="team-list" style="margin-bottom:6px"></div>
@@ -594,14 +614,28 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button class="btn-s" style="padding:6px 9px;font-size:.72rem;white-space:nowrap" onclick="addTeamMember()">+ Ajouter</button>
         </div>
       </div>
-      <div class="fg">
-        <label class="flbl">Objectifs mensuels par plateforme</label>
-        <div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">Nombre de publications visé par plateforme par mois.</div>
-        <div id="target-inputs" style="display:flex;flex-direction:column;gap:5px"></div>
-      </div>
+
       <div class="btn-row">
         <button class="btn-p" onclick="saveSettings()">Enregistrer</button>
         <button class="btn-s" onclick="closeSettings()">Annuler</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OBJECTIFS MODAL ─── -->
+<div class="overlay" id="targets-modal">
+  <div class="modal" style="max-width:400px">
+    <div class="mhdr">
+      <div class="mtitle">🎯 Objectifs mensuels</div>
+      <button class="mclose" onclick="closeTargetsModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:10px">Nombre de publications visé par plateforme par mois.</div>
+      <div id="target-inputs" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn-p" onclick="saveTargets()">Enregistrer</button>
+        <button class="btn-s" onclick="closeTargetsModal()">Annuler</button>
       </div>
     </div>
   </div>
@@ -709,13 +743,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div id="camp-results-body"></div>
       </div>
 
-      <!-- Platform filter (ongoing) -->
-      <div id="camp-platforms-section">
-        <div class="fg"><label class="flbl">Plateformes cibles</label>
-          <div id="camp-platforms-grid" style="display:flex;flex-wrap:wrap;gap:5px;padding:6px;background:var(--surface2);border-radius:7px"></div>
-          <input type="hidden" id="camp-platforms">
-        </div>
-      </div>
+      <!-- Platform filter removed — targets are sufficient -->
+      <input type="hidden" id="camp-platforms">
 
       <div id="camp-posts-count" style="font-size:.72rem;color:var(--muted);margin-bottom:8px"></div>
       <div class="btn-row">
@@ -738,18 +767,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <input type="hidden" id="perf-post-id">
       <div id="perf-post-info" style="font-size:.75rem;color:var(--muted);background:var(--surface2);border-radius:6px;padding:8px 10px;margin-bottom:12px"></div>
 
-      <!-- Hootsuite CSV import -->
-      <div style="border:1.5px dashed var(--border);border-radius:8px;padding:10px;margin-bottom:12px;text-align:center">
-        <div style="font-size:.75rem;font-weight:600;margin-bottom:4px">📥 Importer depuis Hootsuite</div>
-        <div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">Exportez le rapport d'un post Hootsuite en CSV et importez-le ici.</div>
-        <input type="file" id="hootsuite-csv" accept=".csv" style="display:none" onchange="parseHootsuiteCSV(event)">
-        <button class="btn-s" style="font-size:.72rem" onclick="document.getElementById('hootsuite-csv').click()">📂 Choisir un fichier CSV</button>
-        <div id="hootsuite-status" style="font-size:.67rem;color:var(--muted);margin-top:5px"></div>
-      </div>
-
-      <!-- Manual entry -->
-      <div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Saisie manuelle / Manual entry</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <!-- Saisie manuelle -->
+      <div id="perf-platform-fields"></div>
+      <div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Métriques générales</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="perf-common-fields">
         <div class="fg"><label class="flbl">Impressions</label><input type="number" class="finput" id="perf-impressions" placeholder="0" min="0"></div>
         <div class="fg"><label class="flbl">Portée</label><input type="number" class="finput" id="perf-reach" placeholder="0" min="0"></div>
         <div class="fg"><label class="flbl">J'aime</label><input type="number" class="finput" id="perf-likes" placeholder="0" min="0"></div>
@@ -758,6 +779,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div class="fg"><label class="flbl">Clics</label><input type="number" class="finput" id="perf-clicks" placeholder="0" min="0"></div>
         <div class="fg"><label class="flbl">Abonnés gagnés</label><input type="number" class="finput" id="perf-followers" placeholder="0"></div>
         <div class="fg"><label class="flbl">Taux d'engagement %</label><input type="number" class="finput" id="perf-engagement" placeholder="0.0" step="0.01" min="0"></div>
+      </div>
+      <!-- Donations tracking -->
+      <div style="border-top:1px solid var(--border);margin:10px 0 8px"></div>
+      <div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">💰 Dons (lien UTM)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg"><label class="flbl">Nombre de dons</label><input type="number" class="finput" id="perf-donation-count" placeholder="0" min="0"></div>
+        <div class="fg"><label class="flbl">Montant total ($)</label><input type="number" class="finput" id="perf-donation-amount" placeholder="0.00" step="0.01" min="0"></div>
       </div>
       <div class="fg" style="margin-top:4px"><label class="flbl">URL de la publication publiée</label>
         <input type="url" class="finput" id="perf-url" placeholder="https://…"></div>
@@ -966,7 +994,7 @@ const WF=[
 // ── SHAREPOINT CONFIG ─────────────────────────────────────
 const SP_SITE_URL   = 'https://pfusa.sharepoint.com/sites/panzicomms';
 const SP_CLIENT_ID  = 'f23efdf1-a0a6-41fa-abcb-7ae45666721a';
-const APPROVER_EMAIL= 'isis.ossebi@panzi.org';
+const APPROVER_EMAIL= 'isis.ossebi@panzi.org'; // primary email for notifications
 const GRAPH_BASE    = 'https://graph.microsoft.com/v1.0';
 
 // ── STATE (initially empty — loaded from SharePoint) ──────
@@ -974,7 +1002,7 @@ let posts        = [];
 let holidays     = [];
 let hidden       = [];
 let hiddenThemes = [];
-let settings     = {approver:'isis.ossebi@panzi.org',team:[],targets:{},approvalPin:'',msClientId:''};
+let settings     = {approvers:['isis.ossebi@panzi.org','marissa@panzi.org'],team:[],targets:{},approvalPin:'',msClientId:''};
 let THEME_LIST   = [...DEFAULT_THEMES];
 let CAMPAIGN_LIST= [...DEFAULT_CAMPAIGNS];
 
@@ -995,7 +1023,7 @@ async function initMsal(){
   try{
     msalApp=new msal.PublicClientApplication({
       auth:{clientId,authority:'https://login.microsoftonline.com/common',
-            redirectUri:'https://pfusa.sharepoint.com/sites/panzicomms/SiteAssets/comms-cal-v7.html'},
+            redirectUri:'https://mpledger-panzi.github.io/panzi-comms-calendar/'},
       cache:{cacheLocation:'sessionStorage',storeAuthStateInCookie:false},
     });
     await msalApp.initialize();
@@ -1257,7 +1285,12 @@ function loadFromLocalStorage(){
     hidden       =JSON.parse(localStorage.getItem(LS.hidden)   ||'[]');
     hiddenThemes =JSON.parse(localStorage.getItem(LS.hiddenThemes)||'[]');
     const s      =JSON.parse(localStorage.getItem(LS.settings) ||'{}');
-    settings={approver:'isis.ossebi@panzi.org',team:[],targets:{},approvalPin:'',msClientId:'',...s};
+    const loaded=s||{};
+    // Migrate old single 'approver' field to 'approvers' array
+    if(!loaded.approvers){
+      loaded.approvers=loaded.approver?[loaded.approver]:['isis.ossebi@panzi.org','marissa@panzi.org'];
+    }
+    settings={approvers:['isis.ossebi@panzi.org','marissa@panzi.org'],team:[],targets:{},approvalPin:'',msClientId:'',...loaded};
     const th     =JSON.parse(localStorage.getItem(LS.themes)   ||'null');
     if(th) THEME_LIST=th;
     const ca     =JSON.parse(localStorage.getItem(LS.campaigns)||'null');
@@ -1389,6 +1422,122 @@ function toggleHide(id){hidden=hidden.includes(id)?hidden.filter(x=>x!==id):[...
 function toggleTheme(id){hiddenThemes=hiddenThemes.includes(id)?hiddenThemes.filter(x=>x!==id):[...hiddenThemes,id];save();render()}
 
 // ── CALENDAR ─────────────────────────────────────────────
+// Campaign color palette
+const CAMP_COLORS=['#7c3aed','#0891b2','#059669','#d97706','#dc2626','#db2777','#4f46e5','#0d9488'];
+function getCampColor(campId){
+  const idx=CAMPAIGN_LIST.findIndex(c=>c.id===campId);
+  return CAMP_COLORS[Math.max(0,idx)%CAMP_COLORS.length];
+}
+
+function makeCell(date,other,today){
+  const ds=toDS(date),isToday=date.getTime()===today.getTime();
+  const cell=document.createElement('div');
+  cell.className='cal-cell'+(other?' other-m':'')+(isToday?' today':'');
+  cell.dataset.ds=ds;
+
+  const topZone=document.createElement('div');topZone.className='cell-top';
+  const dayEl=document.createElement('div');dayEl.className='cday';dayEl.textContent=date.getDate();
+  topZone.appendChild(dayEl);
+
+  // Important dates — white minimal
+  holidays.filter(h=>h.date===ds).forEach(h=>{
+    const c=document.createElement('div');c.className='hol-chip';
+    c.textContent=(h.emoji||'📅')+'\u202f'+h.name;
+    topZone.appendChild(c);
+  });
+  cell.appendChild(topZone);
+
+  // Posts
+  const visiblePosts=posts.filter(p=>{
+    if(p.date!==ds) return false;
+    if(p.platforms.every(pl=>hidden.includes(pl))) return false;
+    if(p.themes&&p.themes.length&&p.themes.every(t=>hiddenThemes.includes(t))) return false;
+    return true;
+  });
+  if(visiblePosts.length){
+    const hasTop=holidays.some(h=>h.date===ds);
+    if(hasTop){const sep=document.createElement('div');sep.style.cssText='height:1px;background:var(--border);margin:3px 0 2px;opacity:.4';cell.appendChild(sep);}
+    const pe=document.createElement('div');pe.className='cell-posts';
+    visiblePosts.forEach(post=>{
+      const pid=post.platforms[0];
+      const wfData=WF.find(w=>w.id===post.wf)||WF[0];
+      const chip=document.createElement('button');
+      chip.className='pchip'+(post.wf==='planned'?' chip-planned':'');
+      chip.style.cssText=`background:${wfData.bg};color:${wfData.color};border-color:${wfData.border}`;
+      // Campaign left border
+      const campTheme=(post.themes||[]).find(t=>CAMPAIGN_LIST.some(c=>c.id===t));
+      if(campTheme){chip.style.borderLeft=`3px solid ${getCampColor(campTheme)}`;chip.style.paddingLeft='4px';}
+      const title=post.titleFr||'(sans titre)';
+      const subtypeLabel=post.subtype?SUBTYPES[pid]?.find(s=>s.id===post.subtype)?.label||'':'';
+      const subtype=subtypeLabel?`<span style="font-size:.5rem;opacity:.7"> · ${subtypeLabel}</span>`:'';
+      const perfDot=post.perf?'<span style="width:5px;height:5px;border-radius:50%;background:#2d8e5a;flex-shrink:0;display:inline-block;margin-left:2px"></span>':'';
+      // Theme tag
+      const firstThemeId=(post.themes||[]).find(t=>THEME_LIST.some(th=>th.id===t));
+      const themeLabel=firstThemeId?THEME_LIST.find(t=>t.id===firstThemeId)?.label:'';
+      const themeTag=themeLabel?`<span class="theme-tag-chip" style="background:var(--surface2);color:var(--muted)">${themeLabel.substring(0,9)}${themeLabel.length>9?'…':''}</span>`:'';
+      chip.innerHTML=`${logoFor(pid,12)}<span class="ct">${title}${subtype}</span>${themeTag}<span class="cstatus">${wfData.icon}</span>${perfDot}`;
+      chip.onclick=e=>{e.stopPropagation();openEdit(post.id)};
+      pe.appendChild(chip);
+    });
+    cell.appendChild(pe);
+  }
+  const addBtn=document.createElement('button');addBtn.className='add-cell-btn';addBtn.textContent='+';
+  addBtn.onclick=e=>{e.stopPropagation();openPcModal(ds)};
+  cell.appendChild(addBtn);
+  return cell;
+}
+
+function renderCampaignLines(){
+  document.querySelectorAll('.camp-line-row').forEach(el=>el.remove());
+  const grid=document.getElementById('cal-grid');if(!grid)return;
+  const timedCamps=CAMPAIGN_LIST.filter(c=>c.campType==='timed'&&c.startDate&&c.endDate);
+  if(!timedCamps.length)return;
+  const cells=[...grid.querySelectorAll('.cal-cell[data-ds]')];
+  if(!cells.length)return;
+  const gridRect=grid.getBoundingClientRect();
+  grid.style.position='relative';
+
+  timedCamps.forEach((camp,ci)=>{
+    const color=getCampColor(camp.id);
+    const inRange=cells.filter(c=>c.dataset.ds>=camp.startDate&&c.dataset.ds<=camp.endDate);
+    if(!inRange.length)return;
+    // Split into week rows (break when column resets from 6→0 or gap)
+    const rows=[];let cur=[];
+    inRange.forEach((cell,i)=>{
+      if(i===0){cur.push(cell);return;}
+      const prev=inRange[i-1];
+      const pRect=prev.getBoundingClientRect();
+      const cRect=cell.getBoundingClientRect();
+      // New row if cell is below previous
+      if(cRect.top>pRect.top+5){rows.push(cur);cur=[cell];}
+      else cur.push(cell);
+    });
+    if(cur.length)rows.push(cur);
+
+    rows.forEach(row=>{
+      if(!row.length)return;
+      const fRect=row[0].getBoundingClientRect();
+      const lRect=row[row.length-1].getBoundingClientRect();
+      const topOff=fRect.top-gridRect.top+fRect.height-8-(ci%4)*7;
+      const leftOff=fRect.left-gridRect.left+1;
+      const width=lRect.right-fRect.left-2;
+      const line=document.createElement('div');
+      line.className='camp-line-row';
+      line.style.cssText=`position:absolute;z-index:4;cursor:pointer;
+        top:${topOff}px;left:${leftOff}px;width:${width}px;
+        height:5px;background:${color};border-radius:3px;opacity:.82;
+        display:flex;align-items:center;overflow:hidden`;
+      // Show label if wide enough
+      if(width>60){
+        line.innerHTML=`<span style="font-size:.44rem;color:#fff;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:5px">${camp.label}</span>`;
+      }
+      line.title=camp.label;
+      line.onclick=e=>{e.stopPropagation();openEditCampaign(camp.id);};
+      grid.appendChild(line);
+    });
+  });
+}
+
 function renderCalendar(){
   const today=new Date();today.setHours(0,0,0,0);
   const first=new Date(yr,mo,1),last=new Date(yr,mo+1,0);
@@ -1403,85 +1552,7 @@ function renderCalendar(){
   for(let d=1;d<=last.getDate();d++) grid.appendChild(makeCell(new Date(yr,mo,d),false,today));
   const total=dow+last.getDate(),rem=total%7===0?0:7-(total%7);
   for(let i=1;i<=rem;i++) grid.appendChild(makeCell(new Date(yr,mo+1,i),true,today));
-}
-
-// ── CAMPAIGN CALENDAR BANNERS ─────────────────────────────
-function getCampaignBannersForDate(ds){
-  return CAMPAIGN_LIST.filter(c=>c.campType==='timed'&&c.startDate&&c.endDate&&ds>=c.startDate&&ds<=c.endDate);
-}
-
-function makeCell(date,other,today){
-  const ds=toDS(date),isToday=date.getTime()===today.getTime();
-  const cell=document.createElement('div');
-  cell.className='cal-cell'+(other?' other-m':'')+(isToday?' today':'');
-
-  // ── TOP ZONE: day number + dates importantes + campaign banners ──
-  const topZone=document.createElement('div');
-  topZone.className='cell-top';
-
-  const dayEl=document.createElement('div');dayEl.className='cday';dayEl.textContent=date.getDate();
-  topZone.appendChild(dayEl);
-
-  // Dates importantes — warm gold pill
-  holidays.filter(h=>h.date===ds).forEach(h=>{
-    const c=document.createElement('div');
-    c.className='hol-chip';
-    c.textContent=(h.emoji||'📅')+'\u202f'+h.name;
-    topZone.appendChild(c);
-  });
-
-  // Campaign banners — amber/brown, distinct from posts
-  getCampaignBannersForDate(ds).forEach(camp=>{
-    const isStart=camp.startDate===ds,isEnd=camp.endDate===ds;
-    const banner=document.createElement('div');
-    banner.className='camp-banner';
-    const icon=isStart?'▶':isEnd?'■':'◆';
-    banner.textContent=icon+'\u202f'+camp.label;
-    banner.title=(isStart?'Début : ':isEnd?'Fin : ':'')+camp.label;
-    banner.onclick=e=>{e.stopPropagation();openEditCampaign(camp.id)};
-    topZone.appendChild(banner);
-  });
-
-  cell.appendChild(topZone);
-
-  // ── BOTTOM ZONE: posts ──
-  const visiblePosts=posts.filter(p=>{
-    if(p.date!==ds) return false;
-    if(p.platforms.every(pl=>hidden.includes(pl))) return false;
-    if(p.themes&&p.themes.length&&p.themes.every(t=>hiddenThemes.includes(t))) return false;
-    return true;
-  });
-
-  if(visiblePosts.length){
-    // Thin separator only when both top and bottom have content
-    const hasTop=holidays.some(h=>h.date===ds)||getCampaignBannersForDate(ds).length>0;
-    if(hasTop){
-      const sep=document.createElement('div');
-      sep.style.cssText='height:1px;background:var(--border);margin:3px 0 2px;opacity:.5';
-      cell.appendChild(sep);
-    }
-    const pe=document.createElement('div');pe.className='cell-posts';
-    visiblePosts.forEach(post=>{
-      const pid=post.platforms[0];
-      const wfData=WF.find(w=>w.id===post.wf)||WF[0];
-      const chip=document.createElement('button');
-      chip.className='pchip'+(post.wf==='planned'?' chip-planned':'');
-      chip.style.cssText=`background:${wfData.bg};color:${wfData.color};border-color:${wfData.border}`;
-      const title=post.titleFr||'(sans titre)';
-      const subtypeLabel=post.subtype?SUBTYPES[pid]?.find(s=>s.id===post.subtype)?.label||post.subtype:'';
-      const subtype=subtypeLabel?`<span style="font-size:.5rem;opacity:.7"> · ${subtypeLabel}</span>`:'';
-      const perfDot=post.perf?'<span style="width:5px;height:5px;border-radius:50%;background:#2d8e5a;flex-shrink:0;display:inline-block;margin-left:2px" title="Données de performance disponibles"></span>':'';
-      chip.innerHTML=`${logoFor(pid,12)}<span class="ct">${title}${subtype}</span><span class="cstatus">${wfData.icon}</span>${perfDot}`;
-      chip.onclick=e=>{e.stopPropagation();openEdit(post.id)};
-      pe.appendChild(chip);
-    });
-    cell.appendChild(pe);
-  }
-
-  const addBtn=document.createElement('button');addBtn.className='add-cell-btn';addBtn.textContent='+';
-  addBtn.onclick=e=>{e.stopPropagation();openPcModal(ds)};
-  cell.appendChild(addBtn);
-  return cell;
+  requestAnimationFrame(()=>renderCampaignLines());
 }
 
 // ── TALLY ─────────────────────────────────────────────────
@@ -1802,40 +1873,49 @@ function handleFileUpload(event,type,maxCount){
   event.target.value='';
 }
 
-// UTM builder for donation links
+// UTM / Lien de don builder — uses GoFundMe source code builder
 function utmLinkField(){
-  return `<div class="fg"><label class="flbl">🔗 Lien (avec UTM pour dons)</label>
-    <input type="url" class="finput" id="utm-base-url" placeholder="URL de base (ex: https://panzi.org/donate)" oninput="buildUTM()">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px">
-      <input type="text" class="finput" id="utm-source" placeholder="Source UTM (ex: instagram)" oninput="buildUTM()">
-      <input type="text" class="finput" id="utm-medium" placeholder="Médium UTM (ex: social)" oninput="buildUTM()">
-      <input type="text" class="finput" id="utm-campaign" placeholder="Campagne UTM (ex: fin-annee-2026)" oninput="buildUTM()">
-      <input type="text" class="finput" id="utm-content" placeholder="Contenu UTM (optionnel)" oninput="buildUTM()">
+  // Pre-fill source from active platform
+  const platId=activePlatTab||selPlatforms[0]||'';
+  const platLabel=PLATFORMS.find(p=>p.id===platId)?.label||platId;
+  // Pre-fill campaign from first selected campaign theme
+  const campTheme=(selThemes||[]).find(t=>CAMPAIGN_LIST.some(c=>c.id===t));
+  const campLabel=campTheme?CAMPAIGN_LIST.find(c=>c.id===campTheme)?.label||'':'';
+  return `<div class="fg">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <label class="flbl" style="margin-bottom:0">🔗 Lien de don avec code source</label>
+      <a href="https://proacademy.gofundme.com/campaign-url-builder/2366815" target="_blank"
+        style="font-size:.65rem;color:var(--accent);text-decoration:none">📖 Guide GoFundMe →</a>
     </div>
-    <div id="utm-preview" style="display:none;margin-top:5px;padding:6px 8px;background:var(--surface2);border-radius:5px;font-size:.68rem;word-break:break-all;color:var(--accent)"></div>
-    <div id="utm-copy-row" style="display:none;margin-top:4px;display:flex;gap:5px">
-      <button onclick="copyUTM()" class="btn-s" style="font-size:.7rem;padding:4px 10px">📋 Copier le lien UTM</button>
+    <input type="url" class="finput" id="utm-base-url" placeholder="URL de base (ex: https://gofundme.com/panzi)" oninput="buildUTM()" style="margin-bottom:5px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+      <div>
+        <label class="flbl" style="font-size:.62rem">Code source 1 — Plateforme</label>
+        <input type="text" class="finput" id="utm-source" value="${platLabel}" placeholder="ex: Instagram" oninput="buildUTM()">
+      </div>
+      <div>
+        <label class="flbl" style="font-size:.62rem">Code source 2 — Campagne / Post</label>
+        <input type="text" class="finput" id="utm-campaign" value="${campLabel}" placeholder="ex: 16-jours-2026" oninput="buildUTM()">
+      </div>
+    </div>
+    <div id="utm-preview" style="display:none;margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:5px;font-size:.67rem;word-break:break-all;color:var(--accent)"></div>
+    <div style="display:flex;gap:5px;margin-top:5px">
+      <button onclick="copyUTM()" class="btn-s" style="font-size:.7rem;padding:4px 10px">📋 Copier</button>
       <button onclick="addUTMToLinks()" class="btn-p" style="font-size:.7rem;padding:4px 10px;flex:1">+ Ajouter au post</button>
-    </div></div>`;
+    </div>
+  </div>`;
 }
 function buildUTM(){
   const base=document.getElementById('utm-base-url')?.value||'';
   const src=document.getElementById('utm-source')?.value||'';
-  const med=document.getElementById('utm-medium')?.value||'';
   const cam=document.getElementById('utm-campaign')?.value||'';
-  const con=document.getElementById('utm-content')?.value||'';
-  if(!base){document.getElementById('utm-preview').style.display='none';return}
-  let url=base;
+  if(!base){const pr=document.getElementById('utm-preview');if(pr)pr.style.display='none';return}
   const params=[];
   if(src)params.push(`utm_source=${encodeURIComponent(src)}`);
-  if(med)params.push(`utm_medium=${encodeURIComponent(med)}`);
   if(cam)params.push(`utm_campaign=${encodeURIComponent(cam)}`);
-  if(con)params.push(`utm_content=${encodeURIComponent(con)}`);
-  if(params.length) url+=(url.includes('?')?'&':'?')+params.join('&');
+  const url=base+(params.length?(base.includes('?')?'&':'?')+params.join('&'):'');
   const prev=document.getElementById('utm-preview');
-  const copyRow=document.getElementById('utm-copy-row');
   if(prev){prev.style.display='block';prev.textContent=url;prev.dataset.url=url;}
-  if(copyRow)copyRow.style.display='flex';
 }
 function copyUTM(){
   const url=document.getElementById('utm-preview')?.dataset.url||'';
@@ -2036,6 +2116,10 @@ function renderPlatFields(){
   }
 
   container.innerHTML=html;
+  // Update title field note based on platform
+  const needsTitle=['blog','news','survivor','newsletter','youtube'];
+  const titleNote=document.getElementById('title-field-note');
+  if(titleNote) titleNote.textContent=needsTitle.includes(p)?'(requis — affiché publiquement)':'(référence interne uniquement)';
   ['photo','video','link'].forEach(t=>{const el=document.getElementById('mt-'+t+'-tags');if(el)renderMediaTags(t)});
   const post=editId?posts.find(x=>x.id===editId):null;
   const savedData=(platDataByPlat[p])||((post&&post.platDataByPlat)?post.platDataByPlat[p]:null)||(post?.platData);
@@ -2276,26 +2360,18 @@ function renderMediaTags(type){
 }
 
 function setWf(wf){
-  // Save current platform data before any re-render
   if(activePlatTab) savePlatDataForTab(activePlatTab);
-
   curWf=wf;
   const locked=wf==='approved'||wf==='posted';
-  const wasLocked=wf==='posted'; // posted allows only URL edit
 
   WF.forEach(w=>{
     const btn=document.getElementById('ws-'+w.id);if(!btn)return;
     btn.className='wf-btn'+(wf===w.id?' active-'+w.id:'');
     if(locked){
-      // When approved: only allow moving to 'posted'
-      // When posted: nothing clickable
       const canClick=(wf==='approved'&&w.id==='posted');
       btn.style.opacity=canClick||w.id===wf?'1':'0.4';
       btn.style.pointerEvents=canClick||w.id===wf?'':'none';
-    } else {
-      btn.style.opacity='';
-      btn.style.pointerEvents='';
-    }
+    } else {btn.style.opacity='';btn.style.pointerEvents='';}
   });
 
   const isPlanned=wf==='planned';
@@ -2309,21 +2385,43 @@ function setWf(wf){
   document.getElementById('posted-url-group').style.display=isPosted?'block':'none';
   document.getElementById('ms-approval-section').style.display=wf==='draft'?'block':'none';
 
-  // Lock all form inputs when approved/posted
+  // Update approver UI based on MS login state
+  if(isReview){
+    const msUser=getMsalUser();
+    const signedIn=document.getElementById('approver-signed-in');
+    const notSignedIn=document.getElementById('approver-not-signed-in');
+    const userEl=document.getElementById('approver-user');
+    if(msUser){
+      if(signedIn)signedIn.style.display='block';
+      if(notSignedIn)notSignedIn.style.display='none';
+      if(userEl)userEl.textContent=msUser;
+    } else {
+      if(signedIn)signedIn.style.display='none';
+      if(notSignedIn)notSignedIn.style.display='block';
+    }
+    const hint=document.getElementById('approver-hint');
+    if(hint){const list=(settings.approvers||[]).join(' · ');hint.textContent=list?`Approbateur·trices : ${list}`:'';};
+  }
+
+  // Hard lock — ALL inputs disabled when approved/posted
   const modal=document.getElementById('post-modal');
   if(modal){
-    modal.querySelectorAll('input:not(#p-url):not(#p-approver), textarea, select, .popt, .pt-btn').forEach(el=>{
+    // Lock everything
+    modal.querySelectorAll('input, textarea, select, button.popt, button.pt-btn, button.pchip').forEach(el=>{
+      if(el.id==='p-url'||el.id==='p-approver') return; // keep URL editable
       el.style.pointerEvents=locked?'none':'';
-      el.style.opacity=locked&&el.tagName!=='SELECT'?'0.75':'';
+      el.style.opacity=locked&&el.tagName!=='SELECT'?'0.72':'';
     });
+    // Also disable the plat-fields div entirely when locked
+    const pf=document.getElementById('plat-fields');
+    if(pf)pf.style.pointerEvents=locked?'none':'';
+    if(pf)pf.style.opacity=locked?'0.72':'';
     const urlInput=document.getElementById('p-url');
     if(urlInput){urlInput.style.pointerEvents='';urlInput.style.opacity='';}
   }
 
   const saveRow=document.getElementById('save-btn-row');
   if(saveRow) saveRow.style.display=locked?'none':'flex';
-  if(document.getElementById('approver-hint'))
-    document.getElementById('approver-hint').textContent=settings.approver?`Seul·e ${settings.approver} peut approuver.`:'';
 
   renderPlatFields();
 }
@@ -2474,7 +2572,8 @@ Merci de répondre avec votre approbation ou vos commentaires.
 
 Cordialement,
 Équipe Communication — Fondation Panzi`);
-  window.open(`mailto:${APPROVAL_EMAIL}?subject=${subj}&body=${body}`);
+  const allApprovers=(settings.approvers||[APPROVAL_EMAIL]).join(',');
+  window.open(`mailto:${allApprovers}?subject=${subj}&body=${body}`);
   // Mark as in review
   const post=posts.find(x=>x.id===editId);
   if(post&&post.wf==='draft'){post.wf='review';curWf='review';save();render();setWf('review');toast('Envoyé pour approbation — statut mis à jour : En révision');}
@@ -2483,11 +2582,30 @@ Cordialement,
 
 // ── MICROSOFT SSO APPROVAL ───────────────────────────────
 function openSettings(){
-  document.getElementById('setting-approver').value=settings.approver||'';
-  document.getElementById('setting-pin').value='';
-  document.getElementById('setting-ms-client-id').value=settings.msClientId||'';
+  renderApproversList();
   renderTeamList();
   updateMsalUI();
+  document.getElementById('settings-modal').classList.add('open');
+}
+function renderApproversList(){
+  const el=document.getElementById('approvers-list');if(!el)return;
+  const approvers=settings.approvers||[];
+  if(!approvers.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Aucun approbateur ajouté.</div>';return;}
+  el.innerHTML=approvers.map((a,i)=>`<span class="ltag"><span>${a}</span><button onclick="removeApprover(${i})">✕</button></span>`).join('');
+}
+function addApprover(){
+  const inp=document.getElementById('new-approver');
+  const email=inp.value.trim().toLowerCase();
+  if(!email||!email.includes('@')){toast('Entrez une adresse email valide');return;}
+  if(!settings.approvers) settings.approvers=[];
+  if(settings.approvers.includes(email)){toast('Déjà dans la liste');return;}
+  settings.approvers.push(email);inp.value='';renderApproversList();
+}
+function removeApprover(i){
+  settings.approvers.splice(i,1);renderApproversList();
+}
+function closeSettings(){document.getElementById('settings-modal').classList.remove('open')}
+function openTargetsModal(){
   document.getElementById('target-inputs').innerHTML=PLATFORMS.map(p=>`
     <div style="display:flex;align-items:center;gap:8px">
       <div style="width:20px;height:20px;border-radius:4px;overflow:hidden;flex-shrink:0">${LOGOS[p.id]}</div>
@@ -2496,9 +2614,16 @@ function openSettings(){
         style="width:52px;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:.78rem;font-family:'DM Sans',sans-serif;text-align:center">
       <span style="font-size:.65rem;color:var(--muted)">/mois</span>
     </div>`).join('');
-  document.getElementById('settings-modal').classList.add('open');
+  document.getElementById('targets-modal').classList.add('open');
 }
-function closeSettings(){document.getElementById('settings-modal').classList.remove('open')}
+function closeTargetsModal(){document.getElementById('targets-modal').classList.remove('open')}
+function saveTargets(){
+  PLATFORMS.forEach(p=>{
+    const v=parseInt(document.getElementById('target-'+p.id)?.value)||0;
+    if(v>0)settings.targets[p.id]=v; else delete settings.targets[p.id];
+  });
+  save();closeTargetsModal();toast('Objectifs enregistrés');
+}
 function renderTeamList(){
   const el=document.getElementById('team-list');
   if(!settings.team.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Aucun membre ajouté.</div>';return}
@@ -2512,18 +2637,32 @@ function addTeamMember(){
 }
 function removeTeamMember(i){settings.team.splice(i,1);renderTeamList()}
 function saveSettings(){
-  settings.approver=document.getElementById('setting-approver').value.trim()||'isis.ossebi@panzi.org';
-  const newPin=document.getElementById('setting-pin').value.trim();
-  if(newPin) settings.approvalPin=newPin;
-  const newClientId=document.getElementById('setting-ms-client-id').value.trim();
-  settings.msClientId=newClientId; // only update if entered
-  PLATFORMS.forEach(p=>{
-    const v=parseInt(document.getElementById('target-'+p.id)?.value)||0;
-    if(v>0)settings.targets[p.id]=v; else delete settings.targets[p.id];
-  });
+  // approvers list is managed live via addApprover/removeApprover
   save();closeSettings();toast('Paramètres enregistrés');
 }
-function updateAssigneeOptions(){/* removed — no assignee field */}
+function updateAssigneeOptions(){}
+
+// ── APPROBATION ───────────────────────────────────────────
+function approvePost(){
+  if(!editId)return;
+  const approvers=(settings.approvers||['isis.ossebi@panzi.org','marissa@panzi.org']).map(e=>e.toLowerCase().trim());
+  const msUser=getMsalUser();
+  if(msUser){
+    if(!approvers.includes(msUser.toLowerCase())){
+      toast(`❌ ${msUser} n'est pas autorisé·e à approuver`);return;
+    }
+    _doApprove(msUser);
+  } else {
+    toast('Veuillez vous connecter avec Microsoft 365 pour approuver');
+    showLoginBanner();
+  }
+}
+function _doApprove(approverName){
+  const p=posts.find(x=>x.id===editId);
+  if(p){p.approver=approverName;p.wf='approved';p.lockedAt=new Date().toISOString();save();}
+  curWf='approved';setWf('approved');render();
+  toast('✅ Publication approuvée par '+approverName);
+}
 
 // ── APPROVER ──────────────────────────────────────────────
 function requestEdit(){
@@ -2950,64 +3089,144 @@ function generatePDFReport(){
   const pct=inRange.length?Math.round(posted/inRange.length*100):0;
   const fromStr=new Date(from+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   const toStr=new Date(to+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  const perfPosts=inRange.filter(p=>p.perf);
   let sections='';
-  if(inc.summary) sections+=`<h2>Résumé exécutif</h2><div class="summary">
-    <div class="stat"><div class="n">${inRange.length}</div><div class="l">Publications totales</div></div>
-    <div class="stat"><div class="n">${inRange.filter(p=>p.wf==='planned').length}</div><div class="l">📋 Planifiées</div></div>
-    <div class="stat"><div class="n">${posted}</div><div class="l">🚀 Publiées</div></div>
-    <div class="stat"><div class="n">${pct}%</div><div class="l">Taux d'exécution</div></div>
-    ${inc.performance?`<div class="stat"><div class="n">${inRange.filter(p=>p.perf).length}</div><div class="l">📈 Avec perf.</div></div>`:''}
-  </div>`;
+
+  // ── Executive summary ──
+  if(inc.summary){
+    const totalDons=perfPosts.reduce((s,p)=>s+(p.perf.donationCount||0),0);
+    const totalAmount=perfPosts.reduce((s,p)=>s+(p.perf.donationAmount||0),0);
+    sections+=`<h2>Résumé exécutif</h2><div class="summary">
+      <div class="stat"><div class="n">${inRange.length}</div><div class="l">Publications totales</div></div>
+      <div class="stat"><div class="n">${inRange.filter(p=>p.wf==='planned').length}</div><div class="l">Planifiées</div></div>
+      <div class="stat"><div class="n">${posted}</div><div class="l">Publiées</div></div>
+      <div class="stat"><div class="n">${pct}%</div><div class="l">Taux d'exécution</div></div>
+      ${totalDons?`<div class="stat"><div class="n">${totalDons}</div><div class="l">💰 Dons totaux</div></div>`:''}
+      ${totalAmount?`<div class="stat"><div class="n">$${totalAmount.toLocaleString()}</div><div class="l">Montant dons</div></div>`:''}
+    </div>`;
+  }
+
+  // ── By platform ──
   if(inc.platforms){
     const rows=PLATFORMS.map(pl=>{
       const pp=inRange.filter(p=>p.platforms.includes(pl.id));if(!pp.length)return'';
       const pub=pp.filter(p=>p.wf==='posted').length;
-      const avgEng=pp.filter(p=>p.perf?.engagement).length?(pp.reduce((s,p)=>s+(p.perf?.engagement||0),0)/pp.filter(p=>p.perf?.engagement).length).toFixed(1)+'%':'—';
-      return `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee">${pl.label}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${pp.length}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${pub}</td>${inc.performance?`<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${avgEng}</td>`:''}</tr>`;
+      const ppPerf=pp.filter(p=>p.perf);
+      const avgEng=ppPerf.filter(p=>p.perf.engagement).length?
+        (ppPerf.reduce((s,p)=>s+(p.perf.engagement||0),0)/ppPerf.filter(p=>p.perf.engagement).length).toFixed(1)+'%':'—';
+      const totalImp=ppPerf.reduce((s,p)=>s+(p.perf.impressions||p.perf.views||0),0);
+      const totalDons=ppPerf.reduce((s,p)=>s+(p.perf.donationCount||0),0);
+      return `<tr><td>${pl.label}</td><td style="text-align:center">${pp.length}</td><td style="text-align:center">${pub}</td>
+        ${inc.performance?`<td style="text-align:right">${totalImp?totalImp.toLocaleString():'—'}</td><td style="text-align:center">${avgEng}</td>`:''}
+        ${totalDons?`<td style="text-align:center">💰 ${totalDons}</td>`:'<td>—</td>'}
+      </tr>`;
     }).join('');
-    sections+=`<h2>Par plateforme</h2><table><thead><tr><th>Plateforme</th><th style="text-align:center">Total</th><th style="text-align:center">Publiées</th>${inc.performance?'<th style="text-align:center">Eng. moy.</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
+    sections+=`<h2>Par plateforme</h2><table><thead><tr><th>Plateforme</th><th>Total</th><th>Publiées</th>${inc.performance?'<th>Impressions</th><th>Eng. moy.</th>':''}<th>Dons</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
-  if(inc.status){
-    const rows=WF.map(w=>{const n=inRange.filter(p=>p.wf===w.id).length;return n?`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;color:${WF_COLORS[w.id]}">${w.icon} ${w.label}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${n}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${Math.round(n/inRange.length*100)}%</td></tr>`:''}).join('');
-    sections+=`<h2>Par statut</h2><table><thead><tr><th>Statut</th><th style="text-align:center">Publications</th><th style="text-align:center">%</th></tr></thead><tbody>${rows}</tbody></table>`;
-  }
+
+  // ── By theme — with performance breakdown ──
   if(inc.themes){
-    const rows=THEME_LIST.map(t=>{const n=inRange.filter(p=>(p.themes||[]).includes(t.id)).length;return n?`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee">🏷 ${t.label}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${n}</td></tr>`:''}).join('');
-    if(rows)sections+=`<h2>Par thème</h2><table><thead><tr><th>Thème</th><th style="text-align:center">Publications</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const rows=THEME_LIST.map(t=>{
+      const tp=inRange.filter(p=>(p.themes||[]).includes(t.id));if(!tp.length)return'';
+      const pub=tp.filter(p=>p.wf==='posted').length;
+      const tpPerf=tp.filter(p=>p.perf);
+      const totalImp=tpPerf.reduce((s,p)=>s+(p.perf.impressions||p.perf.views||0),0);
+      const totalClicks=tpPerf.reduce((s,p)=>s+(p.perf.clicks||0),0);
+      const avgEng=tpPerf.filter(p=>p.perf.engagement).length?
+        (tpPerf.reduce((s,p)=>s+(p.perf.engagement||0),0)/tpPerf.filter(p=>p.perf.engagement).length).toFixed(1)+'%':'—';
+      return `<tr><td>🏷 ${t.label}</td><td style="text-align:center">${tp.length}</td><td style="text-align:center">${pub}</td>
+        ${inc.performance?`<td style="text-align:right">${totalImp?totalImp.toLocaleString():'—'}</td><td style="text-align:right">${totalClicks?totalClicks.toLocaleString():'—'}</td><td style="text-align:center">${avgEng}</td>`:''}
+      </tr>`;
+    }).filter(r=>r).join('');
+    if(rows) sections+=`<h2>Par thème</h2><table><thead><tr><th>Thème</th><th>Total</th><th>Publiées</th>${inc.performance?'<th>Impressions</th><th>Clics</th><th>Eng.</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
   }
+
+  // ── By campaign — with goal progress ──
   if(inc.campaigns){
-    const rows=CAMPAIGN_LIST.map(c=>{const n=inRange.filter(p=>(p.themes||[]).includes(c.id)).length;return n?`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee">📣 ${c.label}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">${n}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${c.campType==='timed'?(c.startDate+' → '+c.endDate):'Permanente'}</td></tr>`:''}).join('');
-    if(rows)sections+=`<h2>Par campagne</h2><table><thead><tr><th>Campagne</th><th style="text-align:center">Publications</th><th>Période</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const rows=CAMPAIGN_LIST.map(c=>{
+      const cp=inRange.filter(p=>(p.themes||[]).includes(c.id));if(!cp.length)return'';
+      const pub=cp.filter(p=>p.wf==='posted').length;
+      const cpPerf=cp.filter(p=>p.perf);
+      const totalDons=cpPerf.reduce((s,p)=>s+(p.perf.donationCount||0),0);
+      const totalAmt=cpPerf.reduce((s,p)=>s+(p.perf.donationAmount||0),0);
+      const totalImp=cpPerf.reduce((s,p)=>s+(p.perf.impressions||p.perf.views||0),0);
+      const goalsHtml=(c.goals||[]).filter(g=>g.metric).slice(0,3).map(g=>`${g.metric}${g.target?' : '+g.target:''}`).join(' · ');
+      return `<tr><td>📣 ${c.label}<br><span style="font-size:10px;color:#888">${c.campType==='timed'?(c.startDate+' → '+c.endDate):'Permanente'}</span>${goalsHtml?`<br><span style="font-size:10px;color:#555">${goalsHtml}</span>`:''}</td>
+        <td style="text-align:center">${cp.length}</td><td style="text-align:center">${pub}</td>
+        ${inc.performance?`<td style="text-align:right">${totalImp?totalImp.toLocaleString():'—'}</td>`:''}
+        <td style="text-align:center">${totalDons?`💰 ${totalDons}<br>$${totalAmt.toLocaleString()}`:'—'}</td>
+      </tr>`;
+    }).filter(r=>r).join('');
+    if(rows) sections+=`<h2>Par campagne</h2><table><thead><tr><th>Campagne</th><th>Total</th><th>Publiées</th>${inc.performance?'<th>Impressions</th>':''}<th>Dons</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
+
+  // ── Status breakdown ──
+  if(inc.status){
+    const rows=WF.map(w=>{const n=inRange.filter(p=>p.wf===w.id).length;return n?`<tr><td style="color:${WF_COLORS[w.id]}">${w.icon} ${w.label}</td><td style="text-align:center">${n}</td><td style="text-align:center">${Math.round(n/inRange.length*100)}%</td></tr>`:''}).join('');
+    sections+=`<h2>Par statut</h2><table><thead><tr><th>Statut</th><th>Publications</th><th>%</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // ── Performance cross-tab ──
+  if(inc.performance&&perfPosts.length){
+    const tImp=perfPosts.reduce((s,p)=>s+(p.perf.impressions||p.perf.views||0),0);
+    const tReach=perfPosts.reduce((s,p)=>s+(p.perf.reach||0),0);
+    const tClicks=perfPosts.reduce((s,p)=>s+(p.perf.clicks||0),0);
+    const tDons=perfPosts.reduce((s,p)=>s+(p.perf.donationCount||0),0);
+    const tAmt=perfPosts.reduce((s,p)=>s+(p.perf.donationAmount||0),0);
+    const avgEng=perfPosts.filter(p=>p.perf.engagement).length?
+      (perfPosts.reduce((s,p)=>s+(p.perf.engagement||0),0)/perfPosts.filter(p=>p.perf.engagement).length).toFixed(2):0;
+    sections+=`<h2>Performance globale (${perfPosts.length} publications avec données)</h2>
+    <div class="summary">
+      <div class="stat"><div class="n">${tImp.toLocaleString()}</div><div class="l">Impressions / Vues</div></div>
+      <div class="stat"><div class="n">${tReach.toLocaleString()}</div><div class="l">Portée totale</div></div>
+      <div class="stat"><div class="n">${tClicks.toLocaleString()}</div><div class="l">Clics totaux</div></div>
+      <div class="stat"><div class="n">${avgEng}%</div><div class="l">Eng. moyen</div></div>
+      ${tDons?`<div class="stat"><div class="n">${tDons}</div><div class="l">💰 Dons</div></div>`:''}
+      ${tAmt?`<div class="stat"><div class="n">$${tAmt.toLocaleString()}</div><div class="l">Montant dons</div></div>`:''}
+    </div>
+    <table><thead><tr><th>Date</th><th>Plateforme</th><th>Titre</th><th>Imp./Vues</th><th>Portée</th><th>Eng.</th><th>Clics</th><th>Dons</th></tr></thead><tbody>
+    ${perfPosts.map(p=>`<tr>
+      <td style="font-size:11px">${p.date}</td>
+      <td style="font-size:11px">${(p.platforms||[]).map(id=>PLATFORMS.find(pl=>pl.id===id)?.label||id).join(', ')}</td>
+      <td style="font-size:11px">${p.titleFr||'—'}</td>
+      <td style="text-align:right;font-size:11px">${((p.perf.impressions||p.perf.views)||0).toLocaleString()}</td>
+      <td style="text-align:right;font-size:11px">${(p.perf.reach||0).toLocaleString()}</td>
+      <td style="text-align:right;font-size:11px">${p.perf.engagement?p.perf.engagement+'%':'—'}</td>
+      <td style="text-align:right;font-size:11px">${(p.perf.clicks||0).toLocaleString()}</td>
+      <td style="text-align:center;font-size:11px">${p.perf.donationCount?(p.perf.donationCount+' ($'+(p.perf.donationAmount||0).toLocaleString()+')'):'—'}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  // ── Collaborations ──
   if(inc.collab){
     const cp=inRange.filter(p=>p.collab);
     if(cp.length){
-      const rows=cp.map(p=>`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${p.date}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${p.titleFr||p.titleEn||'—'}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">🤝 ${p.collab}</td></tr>`).join('');
-      sections+=`<h2>Collaborations &amp; Partenariats</h2><table><thead><tr><th>Date</th><th>Titre</th><th>Partenaire</th></tr></thead><tbody>${rows}</tbody></table>`;
+      const rows=cp.map(p=>`<tr><td style="font-size:11px">${p.date}</td><td style="font-size:11px">${p.titleFr||'—'}</td><td style="font-size:11px">🤝 ${p.collab}</td></tr>`).join('');
+      sections+=`<h2>Collaborations</h2><table><thead><tr><th>Date</th><th>Titre</th><th>Partenaire</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
   }
-  if(inc.performance){
-    const pp=inRange.filter(p=>p.perf);
-    if(pp.length){
-      const tImp=pp.reduce((s,p)=>s+(p.perf.impressions||0),0);
-      const tReach=pp.reduce((s,p)=>s+(p.perf.reach||0),0);
-      const aEng=pp.filter(p=>p.perf.engagement).length?(pp.reduce((s,p)=>s+(p.perf.engagement||0),0)/pp.filter(p=>p.perf.engagement).length).toFixed(2):0;
-      sections+=`<h2>Performance (${pp.length} publications)</h2><div class="summary"><div class="stat"><div class="n">${tImp.toLocaleString()}</div><div class="l">Impressions</div></div><div class="stat"><div class="n">${tReach.toLocaleString()}</div><div class="l">Portée</div></div><div class="stat"><div class="n">${aEng}%</div><div class="l">Eng. moyen</div></div></div>`;
-      const rows=pp.map(p=>`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${p.date}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${(p.platforms||[]).map(id=>PLATFORMS.find(pl=>pl.id===id)?.label||id).join(', ')}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${p.titleFr||p.titleEn||'—'}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${(p.perf.impressions||0).toLocaleString()}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${(p.perf.reach||0).toLocaleString()}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${p.perf.engagement?p.perf.engagement+'%':'—'}</td></tr>`).join('');
-      sections+=`<table><thead><tr><th>Date</th><th>Plateforme</th><th>Titre</th><th style="text-align:right">Imp.</th><th style="text-align:right">Portée</th><th style="text-align:right">Eng.</th></tr></thead><tbody>${rows}</tbody></table>`;
-    }
-  }
+
+  // ── Detailed post list ──
   if(inc.postlist){
     const rows=inRange.map(p=>{
       const themes=(p.themes||[]).map(t=>[...THEME_LIST,...CAMPAIGN_LIST].find(x=>x.id===t)?.label||t).join(', ')||'—';
       const platNames=(p.platforms||[]).map(id=>PLATFORMS.find(pl=>pl.id===id)?.label||id).join(', ');
-      return `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${p.date}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${platNames}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${p.titleFr||p.titleEn||'—'}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;color:${WF_COLORS[p.wf]||'#333'}">${WF_LABELS[p.wf]||p.wf}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:10px;color:#666">${themes}</td>${inc.performance?`<td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:10px">${p.perf?buildPerfSummary(p.perf):'—'}</td>`:''}</tr>`;
+      return `<tr>
+        <td style="font-size:10px">${p.date}</td><td style="font-size:10px">${platNames}</td>
+        <td style="font-size:11px">${p.titleFr||'—'}</td>
+        <td style="font-size:10px;color:${WF_COLORS[p.wf]||'#333'}">${WF_LABELS[p.wf]||p.wf}</td>
+        <td style="font-size:10px;color:#666">${themes}</td>
+        ${inc.performance?`<td style="font-size:10px">${p.perf?buildPerfSummary(p.perf):'—'}</td>`:''}
+      </tr>`;
     }).join('');
-    sections+=`<h2>Liste des publications</h2><table><thead><tr><th>Date</th><th>Plateforme</th><th>Titre </th><th>Statut</th><th>Thèmes</th>${inc.performance?'<th>Performance</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
+    sections+=`<h2>Liste des publications</h2><table><thead><tr><th>Date</th><th>Plateforme</th><th>Titre</th><th>Statut</th><th>Thèmes</th>${inc.performance?'<th>Performance</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
   }
+
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport Comms — Fondation Panzi</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>body{font-family:'DM Sans',Arial,sans-serif;color:#1a1714;margin:0;padding:28px;font-size:13px}h1{font-family:Georgia,serif;font-size:22px;color:#2d5a8e;margin-bottom:4px}h2{font-family:Georgia,serif;font-size:15px;color:#2d5a8e;margin:22px 0 9px;border-bottom:2px solid #e8ddd6;padding-bottom:4px}.meta{color:#8a8078;font-size:11px;margin-bottom:20px}.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}.stat{background:#f5f3ef;border-radius:8px;padding:10px 14px;flex:1;min-width:90px}.stat .n{font-size:22px;font-weight:600;color:#2d5a8e}.stat .l{font-size:11px;color:#8a8078;margin-top:2px}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{background:#2d5a8e;color:#fff;padding:7px 8px;font-size:11px;text-align:left}@media print{body{padding:0}}</style></head><body>
+  <style>body{font-family:'DM Sans',Arial,sans-serif;color:#1a1714;margin:0;padding:28px;font-size:13px}h1{font-family:Georgia,serif;font-size:22px;color:#2d5a8e;margin-bottom:4px}h2{font-family:Georgia,serif;font-size:15px;color:#2d5a8e;margin:22px 0 9px;border-bottom:2px solid #e8ddd6;padding-bottom:4px}.meta{color:#8a8078;font-size:11px;margin-bottom:20px}.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}.stat{background:#f5f3ef;border-radius:8px;padding:10px 14px;flex:1;min-width:90px}.stat .n{font-size:22px;font-weight:600;color:#2d5a8e}.stat .l{font-size:11px;color:#8a8078;margin-top:2px}table{width:100%;border-collapse:collapse;margin-bottom:20px}th{background:#2d5a8e;color:#fff;padding:7px 8px;font-size:11px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}@media print{body{padding:0}}</style>
+  </head><body>
   <h1>📅 Rapport de Communication — Fondation Panzi</h1>
   <div class="meta">Période : ${fromStr} → ${toStr} · Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
   ${sections}
@@ -3070,14 +3289,21 @@ function savePerformance(){
   const id=document.getElementById('perf-post-id').value;
   const p=posts.find(x=>x.id==id);if(!p)return;
   const g=k=>parseFloat(document.getElementById('perf-'+k)?.value)||0;
-  p.perf={
+  const primary=p.platforms?.[0]||'default';
+  const platFields=PLAT_PERF_FIELDS[primary]||PLAT_PERF_FIELDS.default;
+  const perfData={
     impressions:g('impressions'),reach:g('reach'),likes:g('likes'),
     comments:g('comments'),shares:g('shares'),clicks:g('clicks'),
     followers:g('followers'),engagement:g('engagement'),
     url:document.getElementById('perf-url')?.value||'',
     notes:document.getElementById('perf-notes')?.value||'',
+    donationCount:g('donation-count'),
+    donationAmount:g('donation-amount'),
     updatedAt:new Date().toISOString(),
   };
+  // Also save platform-specific fields
+  platFields.forEach(f=>{const v=g(f);if(v)perfData[f]=v;});
+  p.perf=perfData;
   if(p.perf.url) p.url=p.perf.url;
   save();closePerfModal();render();
   const sum=document.getElementById('perf-summary-inline');
@@ -3087,11 +3313,14 @@ function savePerformance(){
 function buildPerfSummary(perf){
   if(!perf)return'';
   const items=[];
-  if(perf.impressions) items.push(`👁 ${Number(perf.impressions).toLocaleString()}`);
-  if(perf.reach)       items.push(`📡 ${Number(perf.reach).toLocaleString()}`);
-  if(perf.likes)       items.push(`❤️ ${Number(perf.likes).toLocaleString()}`);
-  if(perf.engagement)  items.push(`📊 ${perf.engagement}%`);
-  if(perf.shares)      items.push(`🔁 ${Number(perf.shares).toLocaleString()}`);
+  if(perf.views)           items.push(`▶ ${Number(perf.views).toLocaleString()}`);
+  else if(perf.impressions)items.push(`👁 ${Number(perf.impressions).toLocaleString()}`);
+  if(perf.reach)           items.push(`📡 ${Number(perf.reach).toLocaleString()}`);
+  if(perf.likes)           items.push(`❤️ ${Number(perf.likes).toLocaleString()}`);
+  if(perf.engagement)      items.push(`📊 ${perf.engagement}%`);
+  if(perf.shares||perf.retweets) items.push(`🔁 ${Number(perf.shares||perf.retweets||0).toLocaleString()}`);
+  if(perf.donationCount)   items.push(`💰 ${perf.donationCount} don${perf.donationCount>1?'s':''}`);
+  if(perf.donationAmount)  items.push(`$${Number(perf.donationAmount).toLocaleString()}`);
   return items.join(' · ')||'Aucune donnée';
 }
 function parseHootsuiteCSV(event){
@@ -3270,7 +3499,7 @@ function openNewCampaign(){
   const ongoingRb=document.getElementById('camp-type-ongoing');
   if(ongoingRb)ongoingRb.checked=true;
   campGoalRows=[];renderCampGoalRows();
-  toggleCampType();renderCampPlatGrid('');renderCampPlatTargets({});
+  toggleCampType();renderCampPlatTargets({});
   const rs=document.getElementById('camp-results-summary');if(rs)rs.style.display='none';
   document.getElementById('campaign-modal').classList.add('open');
 }
@@ -3289,7 +3518,7 @@ function openEditCampaign(id){
   if(rb)rb.checked=true;
   toggleCampType();
   campGoalRows=(c.goals||[]).map(g=>({...g}));
-  renderCampGoalRows();renderCampPlatGrid(c.platforms||'');renderCampPlatTargets(c.platTargets||{});
+  renderCampGoalRows();renderCampPlatTargets(c.platTargets||{});
   const rel=posts.filter(p=>(p.themes||[]).includes(id)).length;
   document.getElementById('camp-posts-count').textContent=rel?`${rel} publication(s) liée(s)`:'';
   buildCampResultsSummary(id);
@@ -3456,7 +3685,7 @@ function deleteCampaignById(id){
   toast('Campagne supprimée');
 }
 
-['pc-modal','post-modal','hol-modal','review-modal','imp-modal','settings-modal','export-modal','tc-manager-modal','campaign-modal','theme-modal'].forEach(id=>{
+['pc-modal','post-modal','hol-modal','review-modal','imp-modal','settings-modal','targets-modal','export-modal','tc-manager-modal','campaign-modal','theme-modal','perf-modal'].forEach(id=>{
   const el=document.getElementById(id);if(!el)return;
   el.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
 });
