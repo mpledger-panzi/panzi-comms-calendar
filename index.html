@@ -240,7 +240,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   </div>
   <button class="ico-btn" onclick="openExportModal()" title="Exporter un rapport" style="font-size:.82rem">📊</button>
   <button class="ico-btn" onclick="openTargetsModal()" title="Objectifs mensuels" style="font-size:.85rem">🎯</button>
-  <button class="ico-btn" onclick="openTargetsModal()" title="Paramètres" style="font-size:.85rem">⚙</button>
+  <button class="ico-btn" onclick="openSettings()" title="Paramètres" style="font-size:.85rem">⚙</button>
   <button class="upload-btn" onclick="openImpModal()">⬆ Importer</button>
   <input type="file" id="file-inp" accept=".docx" style="display:none" onchange="handleDocx(event)">
 </div>
@@ -1600,7 +1600,7 @@ function renderTally(){
       </div>
       <div style="font-size:.74rem;font-weight:700;color:#33691e;margin-top:3px">${execPct}%</div>
     </div>
-    <div style="margin-top:4px;font-size:.62rem;color:var(--muted);text-align:right;cursor:pointer" onclick="openSettings()">⚙ Modifier les objectifs</div>`;
+    <div style="margin-top:4px;font-size:.62rem;color:var(--muted);text-align:right;cursor:pointer" onclick="openTargetsModal()">🎯 Modifier les objectifs</div>`;
   el.appendChild(sum);
   // WF breakdown
   const wfDiv=document.createElement('div');wfDiv.style.marginTop='10px';
@@ -3691,6 +3691,11 @@ function deleteCampaignById(id){
 });
 
 function render(){renderSidebar();renderCalendar();renderTally()}
+// Re-render campaign lines on window resize (they use absolute positioning)
+window.addEventListener('resize',()=>{
+  clearTimeout(window._resizeTimer);
+  window._resizeTimer=setTimeout(renderCampaignLines,150);
+});
 // Start: load from cache first, then connect to SharePoint
 loadFromLocalStorage();
 render();
